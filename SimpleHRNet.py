@@ -6,7 +6,13 @@ from torchvision.transforms import transforms
 from models.hrnet import HRNet
 from models.poseresnet import PoseResNet
 from models.detectors.YOLOv3 import YOLOv3
+from models.transpose_r import *
 
+resnet_spec = {18: (BasicBlock, [2, 2, 2, 2]),
+               34: (BasicBlock, [3, 4, 6, 3]),
+               50: (Bottleneck, [3, 4, 6, 3]),
+               101: (Bottleneck, [3, 4, 23, 3]),
+               152: (Bottleneck, [3, 8, 36, 3])}
 
 class SimpleHRNet:
     """
@@ -21,8 +27,10 @@ class SimpleHRNet:
                  c,
                  nof_joints,
                  checkpoint_path,
-                 model_name='HRNet',
+                #  model_name='HRNet',
+                 model_name='transpose_r',
                  resolution=(384, 288),
+                #  resolution=(256, 192),
                  interpolation=cv2.INTER_CUBIC,
                  multiperson=True,
                  return_heatmaps=False,
@@ -88,14 +96,18 @@ class SimpleHRNet:
             self.model = HRNet(c=c, nof_joints=nof_joints)
         elif model_name in ('PoseResNet', 'poseresnet', 'ResNet', 'resnet'):
             self.model = PoseResNet(resnet_size=c, nof_joints=nof_joints)
+        elif model_name in ("TransPose_R", "transpose_r"):
+            num_layers = 50
+            block_class, layers = resnet_spec[num_layers]
+            self.model = TransPoseR(block_class, layers)
+            print("Transpoe_R")
         else:
             raise ValueError('Wrong model name.')
 
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         if 'model' in checkpoint:
-            self.model.load_state_dict(checkpoint['model'])
-        else:
-            self.model.load_state_dict(checkpoint)
+            checkpoint = checkpoint['model']
+        self.model.load_state_dict(checkpoint)
 
         if 'cuda' in str(self.device):
             print("device: 'cuda' - ", end="")
